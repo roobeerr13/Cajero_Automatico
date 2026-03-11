@@ -18,9 +18,9 @@ section .bss
     numero resq 1
 
 section .text
-    global main
+    global dia6
 
-main:
+dia6:
 
 ;--------------------------------
 ; Obtener handle de salida
@@ -65,7 +65,6 @@ main:
 ;--------------------------------
 ; ASCII -> ENTERO
 ;--------------------------------
-
     xor rax,rax
     xor rbx,rbx
 
