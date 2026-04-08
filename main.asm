@@ -5,103 +5,104 @@ extern WriteConsoleA
 extern ReadConsoleA
 extern ExitProcess
 
-; =========================
-; 🔹 DATOS FIJOS
-; =========================
 section .data
-    saldo dq 1000
+    ; =========================
+    ; DATOS
+    ; =========================
+
     pin_correcto dq 1234
 
-    msg db "Ingrese un numero: ", 13, 10
-    msg_len equ $ - msg
+    msg_bienvenida db "=== CAJERO AUTOMATICO ===", 13, 10
+    len_bienvenida equ $ - msg_bienvenida
 
-    msg_resultado db "Numero convertido: ", 13, 10
-    msg_res_len equ $ - msg_resultado
+    msg_pin db "Ingrese PIN: ", 13, 10
+    len_pin equ $ - msg_pin
 
-; =========================
-; 🔹 VARIABLES
-; =========================
+    msg_error db "PIN incorrecto", 13, 10
+    len_error equ $ - msg_error
+
+
 section .bss
-    hConsole resq 1
-    buffer resb 32
-    bytesRead resd 1
-    bytesWritten resd 1
-    numero resq 1
+    ; =========================
+    ; VARIABLES
+    ; =========================
 
-; =========================
-; 🔹 CODIGO
-; =========================
+    hConsoleOut resq 1
+    hConsoleIn  resq 1
+
+    buffer      resb 32
+    bytesRead   resd 1
+    bytesWritten resd 1
+
+
 section .text
     global main
 
+; =========================
+; MAIN
+; =========================
 main:
 
-    ; Mostrar mensaje
-    call print_msg
-
-    ; Leer entrada
-    call leer_input
-
-    ; Convertir ASCII → entero
-    call ascii_to_int
-
-    ; Mostrar resultado (solo 1 dígito simplificado)
-    call mostrar_resultado
-
-    ; Salir
-    xor ecx, ecx
-    sub rsp, 40
-    call ExitProcess
-
-
-; =========================
-; 🔹 FUNCIONES
-; =========================
-
-print_msg:
+    ; Obtener handle salida (STD_OUTPUT_HANDLE = -11)
     mov ecx, -11
     sub rsp, 40
     call GetStdHandle
     add rsp, 40
-    mov [hConsole], rax
+    mov [hConsoleOut], rax
 
-    mov rcx, [hConsole]
-    lea rdx, [msg]
-    mov r8d, msg_len
-    lea r9, [bytesWritten]
-
-    sub rsp, 40
-    call WriteConsoleA
-    add rsp, 40
-    ret
-
-
-leer_input:
+    ; Obtener handle entrada (STD_INPUT_HANDLE = -10)
     mov ecx, -10
     sub rsp, 40
     call GetStdHandle
     add rsp, 40
-    mov [hConsole], rax
+    mov [hConsoleIn], rax
 
-    mov rcx, [hConsole]
+    ; Mostrar bienvenida
+    mov rcx, [hConsoleOut]
+    lea rdx, [msg_bienvenida]
+    mov r8d, len_bienvenida
+    lea r9, [bytesWritten]
+    sub rsp, 40
+    call WriteConsoleA
+    add rsp, 40
+
+    ; Ir a validación de PIN
+    jmp validar_pin
+
+
+; =========================
+; VALIDACIÓN DE PIN
+; =========================
+validar_pin:
+
+    ; Mostrar mensaje PIN
+    mov rcx, [hConsoleOut]
+    lea rdx, [msg_pin]
+    mov r8d, len_pin
+    lea r9, [bytesWritten]
+    sub rsp, 40
+    call WriteConsoleA
+    add rsp, 40
+
+    ; Leer entrada
+    mov rcx, [hConsoleIn]
     lea rdx, [buffer]
     mov r8d, 32
     lea r9, [bytesRead]
-
     sub rsp, 40
     call ReadConsoleA
     add rsp, 40
-    ret
 
-
-ascii_to_int:
-    xor rax, rax
-    xor rbx, rbx
+    ; Convertir ASCII → entero
+    xor rax, rax        ; resultado
+    xor rbx, rbx        ; índice
 
 convert_loop:
+
     movzx rcx, byte [buffer + rbx]
-    cmp rcx, 13         ; Enter
-    je done
+
+    cmp rcx, 13         ; ENTER
+    je fin_conversion
 
     sub rcx, '0'
     imul rax, rax, 10
@@ -110,43 +111,34 @@ convert_loop:
     inc rbx
     jmp convert_loop
 
-done:
-    mov [numero], rax
-    ret
+fin_conversion:
+
+    ; Comparar con PIN correcto
+    cmp rax, [pin_correcto]
+    jne pin_error
+
+    ; PIN correcto → (de momento) salir
+    jmp salir
 
 
-mostrar_resultado:
+pin_error:
 
-    ; Mostrar texto
-    mov ecx, -11
-    sub rsp, 40
-    call GetStdHandle
-    add rsp, 40
-    mov [hConsole], rax
-
-    mov rcx, [hConsole]
-    lea rdx, [msg_resultado]
-    mov r8d, msg_res_len
+    ; Mostrar error
+    mov rcx, [hConsoleOut]
+    lea rdx, [msg_error]
+    mov r8d, len_error
     lea r9, [bytesWritten]
-
     sub rsp, 40
     call WriteConsoleA
     add rsp, 40
 
-    ; Mostrar número (solo 1 dígito demo)
-    mov rax, [numero]
-    add rax, '0'
-    mov [buffer], al
-    mov byte [buffer+1], 13
-    mov byte [buffer+2], 10
+    jmp validar_pin
 
-    mov rcx, [hConsole]
-    lea rdx, [buffer]
-    mov r8d, 3
-    lea r9, [bytesWritten]
 
+; =========================
+; SALIDA
+; =========================
+salir:
+    xor ecx, ecx
     sub rsp, 40
-    call WriteConsoleA
-    add rsp, 40
-
-    ret
+    call ExitProcess
