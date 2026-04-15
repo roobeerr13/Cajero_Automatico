@@ -9,30 +9,28 @@ section .data
     ; =========================
     ; DATOS
     ; =========================
-
-    pin_correcto dq 1234
-
-    msg_bienvenida db "=== CAJERO AUTOMATICO ===", 13, 10
-    len_bienvenida equ $ - msg_bienvenida
-
     msg_pin db "Ingrese PIN: ", 13, 10
     len_pin equ $ - msg_pin
 
-    msg_error db "PIN incorrecto", 13, 10
-    len_error equ $ - msg_error
+    msg_menu db "1. Saldo  2. Depositar  3. Salir", 13, 10
+    len_menu equ $ - msg_menu
+
+    msg_saldo db "Saldo: ", 13, 10
+    len_saldo equ $ - msg_saldo
+
+    saldo dq 5              ; saldo inicial (1 digito)
+    pin_correcto dq 1234
 
 
 section .bss
     ; =========================
     ; VARIABLES
     ; =========================
-
-    hConsoleOut resq 1
-    hConsoleIn  resq 1
-
-    buffer      resb 32
-    bytesRead   resd 1
+    hConsole resq 1
+    buffer resb 32
+    bytesRead resd 1
     bytesWritten resd 1
+    numero resq 1
 
 
 section .text
@@ -43,101 +41,200 @@ section .text
 ; =========================
 main:
 
-    ; Obtener handle salida (STD_OUTPUT_HANDLE = -11)
+; =============================
+; VALIDAR PIN
+; =============================
+validar_pin:
+
+    ; Obtener consola salida
     mov ecx, -11
     sub rsp, 40
     call GetStdHandle
     add rsp, 40
-    mov [hConsoleOut], rax
+    mov [hConsole], rax
 
-    ; Obtener handle entrada (STD_INPUT_HANDLE = -10)
+    ; Mostrar mensaje PIN
+    mov rcx, [hConsole]
+    lea rdx, [msg_pin]
+    mov r8d, len_pin
+    lea r9, [bytesWritten]
+
+    sub rsp, 40
+    call WriteConsoleA
+    add rsp, 40
+
+    ; Leer input
     mov ecx, -10
     sub rsp, 40
     call GetStdHandle
     add rsp, 40
-    mov [hConsoleIn], rax
+    mov [hConsole], rax
 
-    ; Mostrar bienvenida
-    mov rcx, [hConsoleOut]
-    lea rdx, [msg_bienvenida]
-    mov r8d, len_bienvenida
-    lea r9, [bytesWritten]
-    sub rsp, 40
-    call WriteConsoleA
-    add rsp, 40
-
-    ; Ir a validación de PIN
-    jmp validar_pin
-
-
-; =========================
-; VALIDACIÓN DE PIN
-; =========================
-validar_pin:
-
-    ; Mostrar mensaje PIN
-    mov rcx, [hConsoleOut]
-    lea rdx, [msg_pin]
-    mov r8d, len_pin
-    lea r9, [bytesWritten]
-    sub rsp, 40
-    call WriteConsoleA
-    add rsp, 40
-
-    ; Leer entrada
-    mov rcx, [hConsoleIn]
+    mov rcx, [hConsole]
     lea rdx, [buffer]
     mov r8d, 32
     lea r9, [bytesRead]
+
     sub rsp, 40
     call ReadConsoleA
     add rsp, 40
 
     ; Convertir ASCII → entero
-    xor rax, rax        ; resultado
-    xor rbx, rbx        ; índice
+    xor rax, rax
+    xor rbx, rbx
 
-convert_loop:
-
+convert_pin:
     movzx rcx, byte [buffer + rbx]
-
-    cmp rcx, 13         ; ENTER
-    je fin_conversion
+    cmp rcx, 13
+    je fin_convert_pin
 
     sub rcx, '0'
     imul rax, rax, 10
     add rax, rcx
 
     inc rbx
-    jmp convert_loop
+    jmp convert_pin
 
-fin_conversion:
+fin_convert_pin:
 
-    ; Comparar con PIN correcto
     cmp rax, [pin_correcto]
-    jne pin_error
-
-    ; PIN correcto → (de momento) salir
-    jmp salir
+    jne validar_pin
 
 
-pin_error:
+; =============================
+; MENU
+; =============================
+menu:
 
-    ; Mostrar error
-    mov rcx, [hConsoleOut]
-    lea rdx, [msg_error]
-    mov r8d, len_error
+    ; Mostrar menu
+    mov ecx, -11
+    sub rsp, 40
+    call GetStdHandle
+    add rsp, 40
+    mov [hConsole], rax
+
+    mov rcx, [hConsole]
+    lea rdx, [msg_menu]
+    mov r8d, len_menu
     lea r9, [bytesWritten]
+
     sub rsp, 40
     call WriteConsoleA
     add rsp, 40
 
-    jmp validar_pin
+    ; Leer opcion
+    mov ecx, -10
+    sub rsp, 40
+    call GetStdHandle
+    add rsp, 40
+    mov [hConsole], rax
+
+    mov rcx, [hConsole]
+    lea rdx, [buffer]
+    mov r8d, 32
+    lea r9, [bytesRead]
+
+    sub rsp, 40
+    call ReadConsoleA
+    add rsp, 40
+
+    ; Convertir opcion
+    xor rax, rax
+    movzx rax, byte [buffer]
+    sub rax, '0'
+
+    cmp rax, 1
+    je consultar
+
+    cmp rax, 2
+    je depositar
+
+    cmp rax, 3
+    je salir
+
+    jmp menu
 
 
-; =========================
-; SALIDA
-; =========================
+; =============================
+; CONSULTAR SALDO
+; =============================
+consultar:
+
+    ; Mostrar texto
+    mov rcx, [hConsole]
+    lea rdx, [msg_saldo]
+    mov r8d, len_saldo
+    lea r9, [bytesWritten]
+
+    sub rsp, 40
+    call WriteConsoleA
+    add rsp, 40
+
+    ; Convertir saldo (solo 1 dígito)
+    mov rax, [saldo]
+    add rax, '0'
+    mov [buffer], al
+
+    ; Mostrar saldo
+    mov rcx, [hConsole]
+    lea rdx, [buffer]
+    mov r8d, 2
+    lea r9, [bytesWritten]
+
+    sub rsp, 40
+    call WriteConsoleA
+    add rsp, 40
+
+    jmp menu
+
+
+; =============================
+; DEPOSITAR
+; =============================
+depositar:
+
+    ; Leer monto
+    mov ecx, -10
+    sub rsp, 40
+    call GetStdHandle
+    add rsp, 40
+    mov [hConsole], rax
+
+    mov rcx, [hConsole]
+    lea rdx, [buffer]
+    mov r8d, 32
+    lea r9, [bytesRead]
+
+    sub rsp, 40
+    call ReadConsoleA
+    add rsp, 40
+
+    ; Convertir monto
+    xor rax, rax
+    xor rbx, rbx
+
+convert_dep:
+    movzx rcx, byte [buffer + rbx]
+    cmp rcx, 13
+    je fin_dep
+
+    sub rcx, '0'
+    imul rax, rax, 10
+    add rax, rcx
+
+    inc rbx
+    jmp convert_dep
+
+fin_dep:
+
+    add [saldo], rax
+
+    jmp menu
+
+
+; =============================
+; SALIR
+; =============================
 salir:
     xor ecx, ecx
     sub rsp, 40
