@@ -6,235 +6,277 @@ extern ReadConsoleA
 extern ExitProcess
 
 section .data
-    ; =========================
-    ; DATOS
-    ; =========================
-    msg_pin db "Ingrese PIN: ", 13, 10
-    len_pin equ $ - msg_pin
-
-    msg_menu db "1. Saldo  2. Depositar  3. Salir", 13, 10
+    msg_menu db "1. Consultar saldo", 13, 10, "2. Depositar", 13, 10, "3. Retirar", 13, 10, "4. Salir", 13, 10, "Seleccione opcion: ", 0
     len_menu equ $ - msg_menu
 
-    msg_saldo db "Saldo: ", 13, 10
-    len_saldo equ $ - msg_saldo
+    msg_saldo_actual db "Saldo actual: ", 0
+    len_saldo_actual equ $ - msg_saldo_actual
 
-    saldo dq 5              ; saldo inicial (1 digito)
-    pin_correcto dq 1234
+    msg_ingrese_deposito db "Ingrese monto a depositar:", 13, 10, 0
+    len_ingrese_deposito equ $ - msg_ingrese_deposito
 
+    msg_deposito_realizado db "Deposito realizado", 13, 10, 0
+    len_deposito_realizado equ $ - msg_deposito_realizado
+
+    msg_ingrese_retiro db "Ingrese monto a retirar:", 13, 10, 0
+    len_ingrese_retiro equ $ - msg_ingrese_retiro
+
+    msg_retiro_realizado db "Retiro realizado", 13, 10, 0
+    len_retiro_realizado equ $ - msg_retiro_realizado
+
+    msg_fondos_insuficientes db "Fondos insuficientes", 13, 10, 0
+    len_fondos_insuficientes equ $ - msg_fondos_insuficientes
+
+    saldo dq 1000
 
 section .bss
-    ; =========================
-    ; VARIABLES
-    ; =========================
-    hConsole resq 1
+    hStdOut resq 1
+    hStdIn resq 1
     buffer resb 32
+    digits resb 32
+    monto resq 1
     bytesRead resd 1
     bytesWritten resd 1
-    numero resq 1
-
 
 section .text
     global main
 
-; =========================
-; MAIN
-; =========================
 main:
-
-; =============================
-; VALIDAR PIN
-; =============================
-validar_pin:
-
-    ; Obtener consola salida
-    mov ecx, -11
+    ; Obtener handles de entrada y salida de consola
+    mov ecx, -11                  ; STD_OUTPUT_HANDLE
     sub rsp, 40
     call GetStdHandle
     add rsp, 40
-    mov [hConsole], rax
+    mov [hStdOut], rax
 
-    ; Mostrar mensaje PIN
-    mov rcx, [hConsole]
-    lea rdx, [msg_pin]
-    mov r8d, len_pin
-    lea r9, [bytesWritten]
-
-    sub rsp, 40
-    call WriteConsoleA
-    add rsp, 40
-
-    ; Leer input
-    mov ecx, -10
+    mov ecx, -10                  ; STD_INPUT_HANDLE
     sub rsp, 40
     call GetStdHandle
     add rsp, 40
-    mov [hConsole], rax
+    mov [hStdIn], rax
 
-    mov rcx, [hConsole]
-    lea rdx, [buffer]
-    mov r8d, 32
-    lea r9, [bytesRead]
-
-    sub rsp, 40
-    call ReadConsoleA
-    add rsp, 40
-
-    ; Convertir ASCII → entero
-    xor rax, rax
-    xor rbx, rbx
-
-convert_pin:
-    movzx rcx, byte [buffer + rbx]
-    cmp rcx, 13
-    je fin_convert_pin
-
-    sub rcx, '0'
-    imul rax, rax, 10
-    add rax, rcx
-
-    inc rbx
-    jmp convert_pin
-
-fin_convert_pin:
-
-    cmp rax, [pin_correcto]
-    jne validar_pin
-
-
-; =============================
-; MENU
-; =============================
 menu:
-
-    ; Mostrar menu
-    mov ecx, -11
-    sub rsp, 40
-    call GetStdHandle
-    add rsp, 40
-    mov [hConsole], rax
-
-    mov rcx, [hConsole]
+    ; Mostrar menu principal
+    mov rcx, [hStdOut]
     lea rdx, [msg_menu]
     mov r8d, len_menu
     lea r9, [bytesWritten]
-
     sub rsp, 40
     call WriteConsoleA
     add rsp, 40
 
-    ; Leer opcion
-    mov ecx, -10
-    sub rsp, 40
-    call GetStdHandle
-    add rsp, 40
-    mov [hConsole], rax
-
-    mov rcx, [hConsole]
+    ; Leer opción del usuario
+    mov rcx, [hStdIn]
     lea rdx, [buffer]
     mov r8d, 32
     lea r9, [bytesRead]
-
     sub rsp, 40
     call ReadConsoleA
     add rsp, 40
 
-    ; Convertir opcion
-    xor rax, rax
+    ; Convertir opción ASCII → entero
     movzx rax, byte [buffer]
     sub rax, '0'
 
     cmp rax, 1
     je consultar
-
     cmp rax, 2
     je depositar
-
     cmp rax, 3
+    je retirar
+    cmp rax, 4
     je salir
 
     jmp menu
 
-
-; =============================
-; CONSULTAR SALDO
-; =============================
 consultar:
-
-    ; Mostrar texto
-    mov rcx, [hConsole]
-    lea rdx, [msg_saldo]
-    mov r8d, len_saldo
+    ; Mostrar mensaje de saldo
+    mov rcx, [hStdOut]
+    lea rdx, [msg_saldo_actual]
+    mov r8d, len_saldo_actual
     lea r9, [bytesWritten]
-
     sub rsp, 40
     call WriteConsoleA
     add rsp, 40
 
-    ; Convertir saldo (solo 1 dígito)
-    mov rax, [saldo]
-    add rax, '0'
-    mov [buffer], al
-
-    ; Mostrar saldo
-    mov rcx, [hConsole]
-    lea rdx, [buffer]
-    mov r8d, 2
-    lea r9, [bytesWritten]
-
-    sub rsp, 40
-    call WriteConsoleA
-    add rsp, 40
-
+    call mostrar_saldo
     jmp menu
 
-
-; =============================
-; DEPOSITAR
-; =============================
 depositar:
-
-    ; Leer monto
-    mov ecx, -10
+    ; Mostrar prompt de depósito
+    mov rcx, [hStdOut]
+    lea rdx, [msg_ingrese_deposito]
+    mov r8d, len_ingrese_deposito
+    lea r9, [bytesWritten]
     sub rsp, 40
-    call GetStdHandle
+    call WriteConsoleA
     add rsp, 40
-    mov [hConsole], rax
 
-    mov rcx, [hConsole]
+    ; Leer monto ingresado por el usuario
+    mov rcx, [hStdIn]
     lea rdx, [buffer]
     mov r8d, 32
     lea r9, [bytesRead]
-
     sub rsp, 40
     call ReadConsoleA
     add rsp, 40
 
-    ; Convertir monto
+    ; Convertir ASCII → entero usando resultado = resultado * 10 + (digito - '0')
     xor rax, rax
     xor rbx, rbx
 
-convert_dep:
+convert_deposito:
     movzx rcx, byte [buffer + rbx]
     cmp rcx, 13
-    je fin_dep
-
+    je fin_convert_deposito
     sub rcx, '0'
     imul rax, rax, 10
     add rax, rcx
-
     inc rbx
-    jmp convert_dep
+    jmp convert_deposito
 
-fin_dep:
-
+fin_convert_deposito:
+    mov [monto], rax
     add [saldo], rax
 
+    mov rcx, [hStdOut]
+    lea rdx, [msg_deposito_realizado]
+    mov r8d, len_deposito_realizado
+    lea r9, [bytesWritten]
+    sub rsp, 40
+    call WriteConsoleA
+    add rsp, 40
+
+    call mostrar_saldo
     jmp menu
 
+retirar:
+    ; Mostrar prompt para retirar
+    mov rcx, [hStdOut]
+    lea rdx, [msg_ingrese_retiro]
+    mov r8d, len_ingrese_retiro
+    lea r9, [bytesWritten]
+    sub rsp, 40
+    call WriteConsoleA
+    add rsp, 40
 
-; =============================
-; SALIR
-; =============================
+    ; Leer monto ingresado por el usuario
+    mov rcx, [hStdIn]
+    lea rdx, [buffer]
+    mov r8d, 32
+    lea r9, [bytesRead]
+    sub rsp, 40
+    call ReadConsoleA
+    add rsp, 40
+
+    ; Convertir ASCII → entero usando resultado = resultado * 10 + (digito - '0')
+    xor rax, rax
+    xor rbx, rbx
+
+convert_retiro:
+    movzx rcx, byte [buffer + rbx]
+    cmp rcx, 13
+    je fin_convert_retiro
+    sub rcx, '0'
+    imul rax, rax, 10
+    add rax, rcx
+    inc rbx
+    jmp convert_retiro
+
+fin_convert_retiro:
+    mov [monto], rax
+
+    ; Comparar monto con saldo para evitar saldo negativo
+    mov rdx, [saldo]
+    cmp rdx, rax
+    jl error_fondos        ; si monto > saldo saltar a error
+
+    ; Hay suficiente saldo, restar monto
+    sub [saldo], rax
+
+    mov rcx, [hStdOut]
+    lea rdx, [msg_retiro_realizado]
+    mov r8d, len_retiro_realizado
+    lea r9, [bytesWritten]
+    sub rsp, 40
+    call WriteConsoleA
+    add rsp, 40
+
+    call mostrar_saldo
+    jmp menu
+
+error_fondos:
+    ; Mostrar mensaje de error cuando no hay fondos suficientes
+    mov rcx, [hStdOut]
+    lea rdx, [msg_fondos_insuficientes]
+    mov r8d, len_fondos_insuficientes
+    lea r9, [bytesWritten]
+    sub rsp, 40
+    call WriteConsoleA
+    add rsp, 40
+    jmp menu
+
+mostrar_saldo:
+    ; Copiar saldo a RAX para no perder el valor original
+    mov rax, [saldo]
+    cmp rax, 0
+    jne .conv_saldo_zero
+
+    ; Si el saldo es 0, escribir "0" directamente
+    mov byte [buffer], '0'
+    mov byte [buffer+1], 13
+    mov byte [buffer+2], 10
+    mov rcx, [hStdOut]
+    lea rdx, [buffer]
+    mov r8d, 3
+    lea r9, [bytesWritten]
+    sub rsp, 40
+    call WriteConsoleA
+    add rsp, 40
+    ret
+
+.conv_saldo_zero:
+    lea rsi, [digits]
+    xor rcx, rcx
+    mov rbx, 10
+
+    ; Dividir repetidamente entre 10 para obtener residuos
+.conv_digitos:
+    xor rdx, rdx            ; limpiar RDX antes de DIV
+    div rbx                 ; RAX / 10 => cociente en RAX, residuo en RDX
+    add dl, '0'             ; convertir residuo a ASCII
+    mov [rsi + rcx], dl
+    inc rcx
+    test rax, rax
+    jnz .conv_digitos
+
+    ; Invertir el orden de los dígitos en el buffer de salida
+    lea rdi, [buffer]
+    mov r8, rcx
+    dec r8
+.reverse_digits:
+    mov al, [rsi + r8]
+    mov [rdi], al
+    inc rdi
+    dec r8
+    jns .reverse_digits
+
+    mov byte [rdi], 13
+    inc rdi
+    mov byte [rdi], 10
+    inc rdi
+
+    mov r9, rdi
+    sub r9, buffer
+    mov rcx, [hStdOut]
+    lea rdx, [buffer]
+    mov r8d, r9d
+    lea r9, [bytesWritten]
+    sub rsp, 40
+    call WriteConsoleA
+    add rsp, 40
+    ret
+
 salir:
     xor ecx, ecx
     sub rsp, 40
