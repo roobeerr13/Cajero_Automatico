@@ -1,0 +1,25 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Assemble NASM x64",
+      "type": "shell",
+      "command": "nasm",
+      "args": [
+        "-f", "win64",
+        "${file}",
+        "-o", "${workspaceFolder}/build/${fileBasenameNoExtension}.obj"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    }
+  ]
+}
