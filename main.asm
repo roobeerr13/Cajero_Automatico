@@ -20,6 +20,13 @@ extern ExitProcess
 section .data
     saldo dq 1000
     pin_correcto dq 1234
+    intentos dq 3
+
+    msg_pin db "Ingrese PIN: ",13,10
+    len_pin equ $ - msg_pin
+
+    msg_bloqueado db "Tarjeta bloqueada",13,10
+    len_bloqueado equ $ - msg_bloqueado
 
     msg_prompt db "Seleccione una opcion:",13,10
     len_prompt equ $ - msg_prompt
@@ -27,14 +34,20 @@ section .data
     msg_menu db "1. Saldo",13,10,"2. Depositar",13,10,"3. Retirar",13,10,"4. Salir",13,10
     len_menu equ $ - msg_menu
 
-    msg_pin db "Ingrese PIN: ",13,10
-    len_pin equ $ - msg_pin
+    msg_saldo db "Saldo actual:",13,10
+    len_saldo equ $ - msg_saldo
 
-    msg_error_fondos db "Fondos insuficientes",13,10
-    len_error_fondos equ $ - msg_error_fondos
+    msg_depositar db "Ingrese monto a depositar:",13,10
+    len_depositar equ $ - msg_depositar
+
+    msg_retirar db "Ingrese monto a retirar:",13,10
+    len_retirar equ $ - msg_retirar
 
     msg_ok db "Operacion realizada",13,10
     len_ok equ $ - msg_ok
+
+    msg_error_fondos db "Fondos insuficientes",13,10
+    len_error_fondos equ $ - msg_error_fondos
 
     msg_error_opcion db "Opcion invalida",13,10
     len_error_opcion equ $ - msg_error_opcion
@@ -92,26 +105,26 @@ read_input:
     ret
 
 ; ========================================================
-; convert_ascii_to_int: convierte ASCII a entero
+; ascii_to_int: convierte ASCII a entero
 ; Retorno:
 ;   RAX = -2 si la entrada está vacía
 ;   RAX = -1 si hay caracter inválido
 ;   RAX = valor convertido si es válido
 ; ========================================================
-convert_ascii_to_int:
+ascii_to_int:
     xor rax, rax
     xor rbx, rbx
     xor rdx, rdx
 
-.convert_ascii_loop:
+.loop:
     movzx rcx, byte [buffer + rbx]
     cmp cl, 13
-    je .finish_conversion
+    je .fin
 
     cmp cl, '0'
-    jl .invalid_input
+    jl .error
     cmp cl, '9'
-    jg .invalid_input
+    jg .error
 
     sub rcx, '0'
     imul rax, rax, 10
@@ -120,19 +133,19 @@ convert_ascii_to_int:
     inc rbx
     inc rdx
     cmp rbx, 32
-    jl .convert_ascii_loop
+    jl .loop
 
-.invalid_input:
+.error:
     mov rax, -1
     ret
 
-.finish_conversion:
+.fin:
     cmp rdx, 0
-    jne .valid_number
+    jne .ok
     mov rax, -2
     ret
 
-.valid_number:
+.ok:
     ret
 
 ; ========================================================
@@ -142,40 +155,40 @@ convert_ascii_to_int:
 ; Retorno:
 ;   RAX = longitud de texto escrita en buffer
 ; ========================================================
-convert_int_to_ascii:
+int_to_ascii:
     mov r10, 10
     xor rcx, rcx
     lea r11, [buffer + 31]
 
     cmp rax, 0
-    jne .convert_positive
+    jne .convert
 
     mov byte [buffer], '0'
-    mov byte [buffer + 1], 13
-    mov byte [buffer + 2], 10
+    mov byte [buffer+1], 13
+    mov byte [buffer+2], 10
     mov eax, 3
     ret
 
-.convert_positive:
+.convert:
+.loop2:
     xor rdx, rdx
-
-.convert_loop:
     div r10
     add dl, '0'
     dec r11
     mov [r11], dl
     inc rcx
     test rax, rax
-    jnz .convert_loop
+    jnz .loop2
 
     lea rsi, [buffer]
-.copy_loop:
+
+.copy:
     mov dl, [r11]
     mov [rsi], dl
     inc rsi
     inc r11
     dec rcx
-    jnz .copy_loop
+    jnz .copy
 
     mov byte [rsi], 13
     inc rsi
@@ -218,19 +231,26 @@ main:
 ; VALIDAR PIN
 ; ========================================================
 validar_pin:
+    cmp qword [intentos], 0
+    je bloqueado
+
     mov rdx, msg_pin
     mov r8d, len_pin
-    call display_message
+    call display
 
     call read_input
-    call convert_ascii_to_int
-    cmp rax, -2
-    je validar_pin
-    cmp rax, -1
-    je validar_pin
+    call ascii_to_int
 
     cmp rax, [pin_correcto]
-    jne validar_pin
+    je menu
+
+    dec qword [intentos]
+    jmp validar_pin
+
+bloqueado:
+    mov rdx, msg_bloqueado
+    mov r8d, len_bloqueado
+    call display
 
     jmp menu
 
@@ -238,22 +258,13 @@ validar_pin:
 ; MENÚ PRINCIPAL
 ; ========================================================
 menu:
-    mov rdx, msg_prompt
-    mov r8d, len_prompt
-    call display_message
-
     mov rdx, msg_menu
     mov r8d, len_menu
-    call display_message
+    call display
 
     call read_input
-    call convert_ascii_to_int
-    cmp rax, -2
-    je menu
-    cmp rax, -1
-    je error_opcion
+    call ascii_to_int
 
-    mov [numero], rax
     cmp rax, 1
     je consultar
     cmp rax, 2
@@ -269,6 +280,10 @@ menu:
 ; CONSULTAR SALDO
 ; ========================================================
 consultar:
+    mov rdx, msg_saldo
+    mov r8d, len_saldo
+    call display
+
     mov rax, [saldo]
     call print_number
     jmp menu
@@ -277,45 +292,49 @@ consultar:
 ; DEPOSITAR
 ; ========================================================
 depositar:
-    call read_input
-    call convert_ascii_to_int
-    cmp rax, -2
-    je input_error
-    cmp rax, -1
-    je input_error
+    mov rdx, msg_depositar
+    mov r8d, len_depositar
+    call display
 
-    mov [numero], rax
-    mov rax, [saldo]
-    add rax, [numero]
-    mov [saldo], rax
+    call read_input
+    call ascii_to_int
+
+    cmp rax, 0
+    jle error_entrada
+
+    add [saldo], rax
 
     mov rdx, msg_ok
     mov r8d, len_ok
-    call display_message
+    call display
     jmp menu
 
 ; ========================================================
 ; RETIRAR
 ; ========================================================
 retirar:
-    call read_input
-    call convert_ascii_to_int
-    cmp rax, -2
-    je input_error
-    cmp rax, -1
-    je input_error
+    mov rdx, msg_retirar
+    mov r8d, len_retirar
+    call display
 
-    mov [numero], rax
+    call read_input
+    call ascii_to_int
+
+    cmp rax, 0
+    jle error_entrada
+
+    mov rbx, rax
     mov rax, [saldo]
-    cmp rax, [numero]
+
+    cmp rax, rbx
     jl error_fondos
 
-    sub rax, [numero]
+    sub rax, rbx
     mov [saldo], rax
 
     mov rdx, msg_ok
     mov r8d, len_ok
-    call display_message
+    call display
     jmp menu
 
 ; ========================================================
@@ -324,19 +343,19 @@ retirar:
 error_opcion:
     mov rdx, msg_error_opcion
     mov r8d, len_error_opcion
-    call display_message
+    call display
     jmp menu
 
-input_error:
+error_entrada:
     mov rdx, msg_error_entrada
     mov r8d, len_error_entrada
-    call display_message
+    call display
     jmp menu
 
 error_fondos:
     mov rdx, msg_error_fondos
     mov r8d, len_error_fondos
-    call display_message
+    call display
     jmp menu
 
 ; ========================================================
