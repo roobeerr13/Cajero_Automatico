@@ -207,7 +207,7 @@ int_to_ascii:
 ;   RAX = valor a mostrar
 ; ========================================================
 print_number:
-    call convert_int_to_ascii
+    call int_to_ascii
     mov rcx, [hConsole]
     lea rdx, [buffer]
     mov r8d, eax
@@ -236,7 +236,7 @@ validar_pin:
 
     mov rdx, msg_pin
     mov r8d, len_pin
-    call display
+    call display_message
 
     call read_input
     call ascii_to_int
@@ -250,9 +250,9 @@ validar_pin:
 bloqueado:
     mov rdx, msg_bloqueado
     mov r8d, len_bloqueado
-    call display
+    call display_message
 
-    jmp menu
+    jmp salir
 
 ; ========================================================
 ; MENÚ PRINCIPAL
@@ -260,7 +260,7 @@ bloqueado:
 menu:
     mov rdx, msg_menu
     mov r8d, len_menu
-    call display
+    call display_message
 
     call read_input
     call ascii_to_int
@@ -282,7 +282,7 @@ menu:
 consultar:
     mov rdx, msg_saldo
     mov r8d, len_saldo
-    call display
+    call display_message
 
     mov rax, [saldo]
     call print_number
@@ -294,7 +294,7 @@ consultar:
 depositar:
     mov rdx, msg_depositar
     mov r8d, len_depositar
-    call display
+    call display_message
 
     call read_input
     call ascii_to_int
@@ -306,7 +306,7 @@ depositar:
 
     mov rdx, msg_ok
     mov r8d, len_ok
-    call display
+    call display_message
     jmp menu
 
 ; ========================================================
@@ -315,7 +315,7 @@ depositar:
 retirar:
     mov rdx, msg_retirar
     mov r8d, len_retirar
-    call display
+    call display_message
 
     call read_input
     call ascii_to_int
@@ -334,7 +334,7 @@ retirar:
 
     mov rdx, msg_ok
     mov r8d, len_ok
-    call display
+    call display_message
     jmp menu
 
 ; ========================================================
@@ -343,19 +343,19 @@ retirar:
 error_opcion:
     mov rdx, msg_error_opcion
     mov r8d, len_error_opcion
-    call display
+    call display_message
     jmp menu
 
 error_entrada:
     mov rdx, msg_error_entrada
     mov r8d, len_error_entrada
-    call display
+    call display_message
     jmp menu
 
 error_fondos:
     mov rdx, msg_error_fondos
     mov r8d, len_error_fondos
-    call display
+    call display_message
     jmp menu
 
 ; ========================================================
