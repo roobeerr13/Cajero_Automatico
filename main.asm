@@ -242,6 +242,9 @@ validar_pin:
     call read_input
     call ascii_to_int
 
+    cmp rax, -2        ; entrada vacía
+    je validar_pin     ; repetir sin penalizar
+
     cmp rax, [rel pin_correcto]
     je menu
 
