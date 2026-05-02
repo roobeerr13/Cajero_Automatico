@@ -117,7 +117,8 @@ ascii_to_int:
     xor rdx, rdx
 
 .loop:
-    movzx rcx, byte [rel buffer + rbx]
+    lea rsi, [rel buffer]
+    movzx rcx, byte [rsi + rbx]
     cmp cl, 13
     je .fin
 
