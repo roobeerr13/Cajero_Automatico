@@ -61,6 +61,7 @@ section .bss
     read resd 1
     written resd 1
     numero resq 1
+    hInput resq 1
 
 section .text
 global main
@@ -220,11 +221,19 @@ print_number:
 ; MAIN
 ; ========================================================
 main:
+    ; OUTPUT (pantalla)
     mov ecx, -11
     sub rsp, 40
     call GetStdHandle
     add rsp, 40
     mov [rel hConsole], rax
+
+    ; INPUT (teclado)
+    mov ecx, -10
+    sub rsp, 40
+    call GetStdHandle
+    add rsp, 40
+    mov [rel hInput], rax
 
     jmp validar_pin
 
