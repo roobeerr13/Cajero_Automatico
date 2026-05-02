@@ -86,8 +86,8 @@ write_console:
 ;   r8d = longitud del texto
 ; ========================================================
 display_message:
-    mov rcx, [hConsole]
-    lea r9, [written]
+    mov rcx, [rel hConsole]
+    lea r9, [rel written]
     call write_console
     ret
 
@@ -95,10 +95,10 @@ display_message:
 ; read_input: lee una linea de consola en el buffer
 ; ========================================================
 read_input:
-    mov rcx, [hConsole]
-    lea rdx, [buffer]
+    mov rcx, [rel hConsole]
+    lea rdx, [rel buffer]
     mov r8d, 32
-    lea r9, [read]
+    lea r9, [rel read]
     sub rsp, 40
     call ReadConsoleA
     add rsp, 40
@@ -117,7 +117,7 @@ ascii_to_int:
     xor rdx, rdx
 
 .loop:
-    movzx rcx, byte [buffer + rbx]
+    movzx rcx, byte [rel buffer + rbx]
     cmp cl, 13
     je .fin
 
@@ -158,7 +158,7 @@ ascii_to_int:
 int_to_ascii:
     mov r10, 10
     xor rcx, rcx
-    lea r11, [buffer + 31]
+    lea r11, [rel buffer + 31]
 
     cmp rax, 0
     jne .convert
@@ -180,7 +180,7 @@ int_to_ascii:
     test rax, rax
     jnz .loop2
 
-    lea rsi, [buffer]
+    lea rsi, [rel buffer]
 
 .copy:
     mov dl, [r11]
@@ -208,10 +208,10 @@ int_to_ascii:
 ; ========================================================
 print_number:
     call int_to_ascii
-    mov rcx, [hConsole]
-    lea rdx, [buffer]
+    mov rcx, [rel hConsole]
+    lea rdx, [rel buffer]
     mov r8d, eax
-    lea r9, [written]
+    lea r9, [rel written]
     call write_console
     ret
 
@@ -223,7 +223,7 @@ main:
     sub rsp, 40
     call GetStdHandle
     add rsp, 40
-    mov [hConsole], rax
+    mov [rel hConsole], rax
 
     jmp validar_pin
 
@@ -231,7 +231,7 @@ main:
 ; VALIDAR PIN
 ; ========================================================
 validar_pin:
-    cmp qword [intentos], 0
+    cmp qword [rel intentos], 0
     je bloqueado
 
     mov rdx, msg_pin
@@ -241,10 +241,10 @@ validar_pin:
     call read_input
     call ascii_to_int
 
-    cmp rax, [pin_correcto]
+    cmp rax, [rel pin_correcto]
     je menu
 
-    dec qword [intentos]
+    dec qword [rel intentos]
     jmp validar_pin
 
 bloqueado:
@@ -284,7 +284,7 @@ consultar:
     mov r8d, len_saldo
     call display_message
 
-    mov rax, [saldo]
+    mov rax, [rel saldo]
     call print_number
     jmp menu
 
@@ -302,7 +302,7 @@ depositar:
     cmp rax, 0
     jle error_entrada
 
-    add [saldo], rax
+    add [rel saldo], rax
 
     mov rdx, msg_ok
     mov r8d, len_ok
@@ -330,7 +330,7 @@ retirar:
     jl error_fondos
 
     sub rax, rbx
-    mov [saldo], rax
+    mov [rel saldo], rax
 
     mov rdx, msg_ok
     mov r8d, len_ok
