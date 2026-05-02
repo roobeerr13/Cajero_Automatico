@@ -96,7 +96,7 @@ display_message:
 ; read_input: lee una linea de consola en el buffer
 ; ========================================================
 read_input:
-    mov rcx, [rel hConsole]
+    mov rcx, [rel hInput]
     lea rdx, [rel buffer]
     mov r8d, 32
     lea r9, [rel read]
